@@ -6,6 +6,7 @@
 
 import options
 import json
+import strutils
 
 const should_check_exhaustive =
     not defined(release) and
@@ -52,12 +53,15 @@ proc `$$`*[T](x: T): string =
 ## from_json: convert json to value without human labor
 ## ----------------------------------------------------
 
-template throw(T: typedesc, msg: string) =
-    raise T.new_exception msg
+template throw(T: typedesc, fmt: string, args: varargs[string, `$`]) =
+    ## raise exception, with formatted message
+    raise T.new_exception format(fmt, args)
 
 proc not_nil_and_is(root: Json_node, kind: Json_node_kind) =
-    if root.is_nil: Access_violation_error.throw "got nil"
-    if root.kind != kind: Access_violation_error.throw "got " & $root.kind & ", but expect " & $kind
+    if root.is_nil:
+        Access_violation_error.throw "got nil, but expect $#", kind
+    if root.kind != kind:
+        Access_violation_error.throw "got $#, but expect $#", root.kind, kind
 
 proc to*(root: Json_node, x: var int) =
     root.not_nil_and_is J_int
@@ -86,7 +90,7 @@ proc to*[T](root: Json_node, x: var seq[T]) =
 proc to*[T](root: Json_node, x: var open_array[T]) =
     root.not_nil_and_is J_array
     if x.len != root.len:
-        Access_violation_error.throw "array length (" & $x.len & ") and JSON array length (" & $root.len &  ") must be the same"
+        Access_violation_error.throw "array length ($#) and JSON array length ($#) must be the same", x.len, root.len
     for i, value in x.mpairs:
         root[i].to value
 
@@ -115,7 +119,7 @@ proc to*(root: Json_node, x: var tuple) =
 
     let xlen = x.len
     if xlen != root.len:
-        Access_violation_error.throw "tuple size (" & $xlen & ") and JSON array length (" & $root.len &  ") must be the same"
+        Access_violation_error.throw "tuple size ($#) and JSON array length ($#) must be the same", xlen, root.len
 
     var i = 0
     for _, value in x.field_pairs:
