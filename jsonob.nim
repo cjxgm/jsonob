@@ -22,6 +22,10 @@ proc to_json*(x: int|float|string|bool): Json_node =
     ## Convert primitive types to corresponding JSON value
     %x
 
+proc to_json*(x: enum): Json_node =
+    ## Convert primitive types to corresponding JSON value
+    % $x
+
 proc to_json*(x: object): Json_node =
     ## Convert ``object`` to JSON object
     result = new_j_object()
@@ -78,6 +82,10 @@ proc to*(root: Json_node, x: var string) =
 proc to*(root: Json_node, x: var bool) =
     root.not_nil_and_is J_bool
     x = root.bval
+
+proc to*[T: enum](root: Json_node, x: var T) =
+    root.not_nil_and_is J_string
+    x = parse_enum[T](root.str)
 
 # x may be nil
 proc to*[T](root: Json_node, x: var seq[T]) =
@@ -181,4 +189,14 @@ when is_main_module:
     let tt: string = nil
     let t = (2, "hello", [1, 4, 3]).to_json.to Yes
     echo $t
+
+    type ET* = enum
+        etHello
+        etWorld
+        etTest = 10
+    let x = etWorld
+    echo $$x
+
+    let y: ET = etWorld.to_json.to ET
+    echo $y
 
