@@ -1,0 +1,105 @@
+= jsonob: JSON / Object Mapper
+
+`marshal` from the stdlib allows you to serialize your arbitrary nim objects
+into JSON strings and get your objects back from those serialized JSON strings.
+But what if, you want to exchange data in JSON strings between Web APIs and your code?
+`marshal` doesn't work any more because:
+
+- It can't parse JSON `null` correctly.
+- It can't serialize `Option[T]` properly (it just serialize all the fields of it, but it should really be `null` for `none(T)` and `value` for `some(value)`)
+- It is designed for serialize *arbitrary* nim objects, instead of requiring you to model your nim objects around JSON.
+
+That's where `jsonob` come in.
+You model your nim objects directly around the JSON data.
+`jsonob` serialize it to JSON, or parse the JSON to your objects.
+
+== Example
+
+----
+import json, jsonob, options
+
+type
+    Result = object
+        status: Status
+        messages: seq[Message]
+        error: Option[string]       # exists only when status == failed
+
+    Status = enum
+        ok
+        failed
+
+    Message = object
+        `from`: Option[string]    # none for "anonymous"
+        text: string
+        date: Date
+
+    Date = tuple
+        year: int
+        month: int
+        day: int
+
+
+proc test(s: string) =
+    let r = s.parse_json.to Result
+
+    case r.status
+    of Status.ok:
+        for message in r.messages:
+            echo message.`from`
+            echo message.text
+            echo message.date
+    of Status.failed:
+        echo "failed"
+        echo r.error.get()
+
+    echo()
+
+test """
+{
+    "status": "ok",
+    "messages": [
+        {
+            "text": "hello world",
+            "date": [2016, 7, 15]
+        }
+    ]
+}
+"""
+
+test """
+{
+    "status": "failed",
+    "messages": [],
+    "error": "that's an error"
+}
+"""
+----
+
+.The output
+----
+None[string]
+hello world
+(year: 2016, month: 7, day: 15)
+
+failed
+that's an error
+
+----
+
+== TODO
+
+* support for object variant
+
+----
+type
+    Result = object
+        case status: Status
+        of Status.ok:
+            messages: seq[Message]
+        of Status.failed:
+            error: string
+----
+
+* better error message
+* documentation
+
